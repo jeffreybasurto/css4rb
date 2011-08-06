@@ -1,1 +1,18 @@
-body { test: 10;}
+/* every player */
+player { width: 80;}
+
+/* every player inside of a room (any nesting level) */
+room player { 
+  align: right; 
+  mxp-color: navy; /* example of something not supported on all clients and how it can fall back */
+}
+
+/* players directly nested in a room. */ 
+room > player { height: 3; }
+
+/* every room */
+room { align: right;}
+
+
+/* this rule isn't matched against */
+player room { something: irrelevant;}
