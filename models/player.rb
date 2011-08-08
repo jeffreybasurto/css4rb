@@ -1,3 +1,4 @@
 class Player
-  include Selectable
+  attr_cssable :name
+  include Cssable
 end

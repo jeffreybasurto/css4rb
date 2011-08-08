@@ -1,8 +1,29 @@
 $global_css_document = CSSPool.CSS(File.open(File.expand_path("data/global.css")).read())
 
+# make a method for defining accessors so that they will have included cssable.
+class Class
+ def attr_cssable(*accessors)
+   accessors.each do |m|
+     define_method(m) do  
+       found = instance_variable_get("@#{m}")
+     end        
 
-# add to classes to make them selectable using hte class name.
-module Selectable
+     define_method("#{m}=") do |val| 
+       instance_variable_set("@#{m}",val)
+       class << val; include Cssable; end 
+       self.nests(val, m.to_s)
+       # include it on the singleton class for the object once it's set.
+     end
+   end
+ end
+end
+
+module Cssable
+  attr_accessor :nested_as
+  def build
+    return self.class.name.to_s.downcase
+  end
+
   def initialize(*atts)
     super
     atts.flatten!
@@ -10,15 +31,16 @@ module Selectable
   end
   attr_accessor :parent
   
-  def nests something_selectable 
+  def nests something_selectable, as=nil
     @nests ||= []
     @nests.push(something_selectable)
     
     something_selectable.parent = self
+    something_selectable.nested_as = as if as
   end
   
   def to_tag content
-    tag = self.class.to_s.downcase
+    tag = self.nested_as || self.class.to_s.downcase
     "<#{tag} id='#{self.object_id}'>#{content}</#{tag}>"
   end
   
@@ -30,6 +52,9 @@ module Selectable
 
   # returns all rules in the css that apply to this element.
   def matching_rules
+    one_level_down = []
+    one_level_down = self.parent.matching_rules || [] if self.parent
+    
     node = Nokogiri::HTML(self.to_html("")).css("##{self.object_id}").first
     # test our rules to see how to render.
     matched = []
@@ -38,11 +63,11 @@ module Selectable
         matched << rs
       end
     end
-    return matched
+    return (matched + one_level_down)
   end
   
   # render matching style
-  def render txt, options={}
+  def render txt=self.to_s
     align = :left
     width = txt.size
     height = 1
@@ -66,26 +91,22 @@ module Selectable
       end
     end
  
-    buffer = [("[" if (options[:with_bounding_box]).to_s) + 
-    (case align
+   
+    buffer = [case align
     when :left
       txt.ljust(width)
     when :right
       txt.rjust(width)
     when :center
       txt.center(width)
-    end) + ("]" if (options[:with_bounding_box]).to_s)]
+    end]
     
     height -= 1
     loop do
       break if height == 0
       height -= 1
-      if options[:with_bounding_box]
-        buffer.push("["+"".center(width)+"]")
-      else
-        buffer >> "".center(width)
-      end
+      buffer.push("".center(width))
     end
-    return buffer.join("\n")
+    return "[" + buffer.join("]\n[") + "]"
   end
 end

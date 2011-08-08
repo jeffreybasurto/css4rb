@@ -1,3 +1,3 @@
 class Room
-  include Selectable
+  include Cssable
 end
